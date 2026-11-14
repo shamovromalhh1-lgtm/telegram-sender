@@ -4,14 +4,13 @@ import threading
 from flask import Flask
 from playwright.sync_api import sync_playwright
 
-# --- МИНИ-СЕРВЕР ДЛЯ RENDER (ДОЛЖЕН СТАРТОВАТЬ ПЕРВЫМ) ---
+# --- МИНИ-СЕРВЕР ДЛЯ RENDER ---
 app = Flask(__name__)
 
 @app.route("/")
 def home():
     return "Telegram Bot is running!", 200
 
-# ТВОЙ ТЕКСТ С ЖИРНЫМ ШРИФТОМ
 MESSAGE_TEXT = """**Куплю:**
 
 **Донат 1 рубль = 700к**
@@ -21,32 +20,7 @@ MESSAGE_TEXT = """**Куплю:**
 
 **Так же беру имущество под выкуп, что бы вам отыграться, процент минимальный**"""
 
-# ПРЯМАЯ ССЫЛКА НА ТВОЙ ЧАТ
 TARGET_LINK = "https://web.telegram.org/a/#-1002455061728" 
-
-def remove_onboarding_overlays(page):
-    try:
-        close_btn = page.locator("svg.icon-close, button.close-button, div.modal button, [class*='close']").last
-        if close_btn.is_visible(timeout=3000):
-            close_btn.click()
-            time.sleep(1)
-    except Exception:
-        pass
-
-    page.evaluate("""() => {
-        const unwantedSelectors = ['.popup', '.modal', '.welcome', '.settings', '.overlay'];
-        unwantedSelectors.forEach(sel => {
-            document.querySelectorAll(sel).forEach(el => {
-                if (el.id !== 'column-left' && el.id !== 'column-center' && el.id !== 'column-right') {
-                    el.remove();
-                }
-            });
-        });
-        if (document.body) {
-            document.body.style.overflow = 'auto';
-            document.body.classList.remove('modal-open');
-        }
-    }""")
 
 def send_message():
     auth_path = "/etc/secrets/auth.json"
@@ -58,19 +32,26 @@ def send_message():
         return
 
     with sync_playwright() as p:
-        print("Запуск браузера Chromium...")
+        print("Запуск браузера Chromium с обходом антибот-защиты...")
         browser = p.chromium.launch(
             headless=True,
             args=[
                 "--disable-blink-features=AutomationControlled",
                 "--no-sandbox",
-                "--disable-setuid-sandbox"
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-accelerated-2d-canvas",
+                "--no-first-run",
+                "--no-zygote",
+                "--single-process",
+                "--disable-gpu"
             ]
         )
         context = browser.new_context(
             storage_state=auth_path,
             viewport={"width": 1280, "height": 800},
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            locale="ru-RU"
         )
         page = context.new_page()
 
@@ -78,25 +59,26 @@ def send_message():
             print("1. Открываем прямую ссылку на чат...")
             page.goto(TARGET_LINK, timeout=60000)
             
-            print("2. Ожидаем 30 секунд для прогрузки чата...")
-            time.sleep(30)
+            print("2. Ожидаем 45 секунд для полной прогрузки Telegram Web...")
+            time.sleep(45)
 
-            print("3. Удаляем оверлеи и кликаем по центру экрана...")
-            remove_onboarding_overlays(page)
-            page.mouse.click(640, 400)
-            time.sleep(2)
-
-            print("4. Ищем поле ввода сообщения в чате...")
+            print("3. Проверяем наличие поля ввода сообщения...")
+            # Пытаемся найти поле с явным логированием ошибки, если оно не появится
             input_box = page.locator("div[contenteditable='true']").last
             
-            print("Ожидаем видимости поля ввода (таймаут 20 сек)...")
-            input_box.wait_for(state="visible", timeout=20000)
-            print("✔ Поле ввода найдено!")
-            
+            print("Ожидаем видимости поля ввода (таймаут 15 сек)...")
+            try:
+                input_box.wait_for(state="visible", timeout=15000)
+                print("✔ Поле ввода успешно найдено!")
+            except Exception as wait_err:
+                print(f"⚠ Поле ввода не найдено по таймауту! Делаем скриншот state.png... Ошибка: {wait_err}")
+                page.screenshot(path="state.png")
+                return
+
             input_box.click()
             time.sleep(1)
             
-            print("5. Вставляем текст через JavaScript...")
+            print("4. Вставляем текст через JavaScript...")
             page.evaluate(f"""(text) => {{
                 const boxes = document.querySelectorAll("div[contenteditable='true']");
                 const box = boxes[boxes.length - 1];
@@ -108,13 +90,17 @@ def send_message():
             }}""", MESSAGE_TEXT)
             
             time.sleep(1.5)
-            print("6. Нажимаем Enter для отправки...")
+            print("5. Нажимаем Enter для отправки...")
             page.keyboard.press("Enter")
             print("✔ Сообщение успешно отправлено в чат по прямой ссылке!")
             time.sleep(3)
             
         except Exception as e:
-            print(f"✖ Ошибка выполнения на конкретном шаге: {e}")
+            print(f"✖ Общая ошибка выполнения: {e}")
+            try:
+                page.screenshot(path="error.png")
+            except:
+                pass
         finally:
             browser.close()
 
