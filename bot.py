@@ -4,7 +4,7 @@ import threading
 from flask import Flask
 from playwright.sync_api import sync_playwright
 
-# --- МИНИ-СЕРВЕР ДЛЯ RENDER (чтобы не было ошибки по таймауту порта) ---
+# --- МИНИ-СЕРВЕР ДЛЯ RENDER (чтобы веб-сервис не падал по таймауту) ---
 app = Flask(__name__)
 
 @app.route("/")
@@ -57,13 +57,14 @@ def remove_onboarding_overlays(page):
     }""")
 
 def send_message():
-    auth_data = os.environ.get("TELEGRAM_AUTH_JSON")
-    if not auth_data:
-        print("✖ Ошибка: не найден секрет TELEGRAM_AUTH_JSON")
-        return
+    # Проверяем путь к файлу авторизации (на Render в Secret Files или локально)
+    auth_path = "/etc/secrets/auth.json"
+    if not os.path.exists(auth_path):
+        auth_path = "auth.json"
 
-    with open("auth.json", "w", encoding="utf-8") as f:
-        f.write(auth_data)
+    if not os.path.exists(auth_path):
+        print(f"✖ Ошибка: файл авторизации не найден ни по пути {auth_path}, ни локально!")
+        return
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -71,7 +72,7 @@ def send_message():
             args=["--disable-blink-features=AutomationControlled"]
         )
         context = browser.new_context(
-            storage_state="auth.json",
+            storage_state=auth_path,
             viewport={"width": 1280, "height": 800},
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
         )
@@ -137,7 +138,7 @@ def bot_loop():
         time.sleep(300)
 
 if __name__ == "__main__":
-    # Запускаем веб-сервер в отдельном потоке, чтобы Render видел открытый порт
+    # Запускаем веб-сервер в отдельном потоке для Render
     server_thread = threading.Thread(target=run_web_server)
     server_thread.daemon = True
     server_thread.start()
