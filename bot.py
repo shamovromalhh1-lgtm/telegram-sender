@@ -21,10 +21,9 @@ MESSAGE_TEXT = """**Куплю:**
 
 **Так же беру имущество под выкуп, что бы вам отыграться, процент минимальный**"""
 
-# СПИСОК ЧАТОВ, куда нужно отправлять сообщения
+# СПИСОК ЧАТОВ (точное название)
 TARGET_CHATS = [
     "Чат игроков rahatov.mta",       
-    "Второй чат или название",   
 ]
 
 def remove_onboarding_overlays(page):
@@ -75,23 +74,40 @@ def send_message():
         try:
             print("1. Загружаем Telegram Web...")
             page.goto("https://web.telegram.org/k/", timeout=60000)
-            page.wait_for_selector("#column-left", timeout=30000)
-            time.sleep(4)
+            
+            print("2. Ожидаем прогрузку интерфейса...")
+            page.wait_for_selector("#column-left", timeout=40000)
+            time.sleep(6)
 
             remove_onboarding_overlays(page)
             time.sleep(2)
 
             for chat_name in TARGET_CHATS:
-                print(f"\n--- Переходим к чату: '{chat_name}' ---")
+                print(f"\n--- Ищем и переходим к чату: '{chat_name}' ---")
                 
                 if page.url != "https://web.telegram.org/k/":
                     page.goto("https://web.telegram.org/k/", timeout=30000)
-                    time.sleep(2)
+                    time.sleep(3)
                     remove_onboarding_overlays(page)
 
+                # Сначала ищем в видимой левой панели
                 chat_item = page.locator("#column-left").get_by_text(chat_name).first
-                chat_item.wait_for(state="visible", timeout=15000)
-                chat_item.click()
+                
+                try:
+                    chat_item.wait_for(state="visible", timeout=5000)
+                    chat_item.click()
+                except Exception:
+                    print("Чат не найден на первом экране, используем поиск Telegram...")
+                    search_box = page.locator("input#input-search").first
+                    search_box.wait_for(state="visible", timeout=10000)
+                    search_box.click()
+                    search_box.fill(chat_name)
+                    time.sleep(2)
+                    
+                    result_item = page.locator(".search-super-results .chat-item, .found-peers .chat-item, #column-left .chat-item").first
+                    result_item.wait_for(state="visible", timeout=10000)
+                    result_item.click()
+
                 time.sleep(2)
 
                 print("3. Вводим текст через JS и отправляем...")
@@ -125,7 +141,6 @@ def send_message():
             browser.close()
 
 def bot_loop():
-    # Небольшая пауза при старте, чтобы веб-сервер успел открыться на Render
     time.sleep(5)
     while True:
         print("\n=== Запуск цикла отправки сообщений ===")
@@ -134,11 +149,9 @@ def bot_loop():
         time.sleep(300)
 
 if __name__ == "__main__":
-    # Запускаем цикл бота в фоновом потоке
     bot_thread = threading.Thread(target=bot_loop)
     bot_thread.daemon = True
     bot_thread.start()
 
-    # Главный поток сразу отдает Render'у работу веб-сервера (порт открывается мгновенно!)
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
