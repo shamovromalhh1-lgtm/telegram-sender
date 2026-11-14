@@ -1,6 +1,20 @@
 import os
 import time
+import threading
+from flask import Flask
 from playwright.sync_api import sync_playwright
+
+# --- МИНИ-СЕРВЕР ДЛЯ RENDER (чтобы не было ошибки по таймауту порта) ---
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Telegram Bot is running!", 200
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+# ---------------------------------------------------------------------
 
 # ТВОЙ ТЕКСТ С ЖИРНЫМ ШРИФТОМ
 MESSAGE_TEXT = """**Куплю:**
@@ -115,10 +129,18 @@ def send_message():
         finally:
             browser.close()
 
-if __name__ == "__main__":
-    # Бесконечный цикл для работы 24/7 (отправка каждые 5 минут = 300 секунд)
+def bot_loop():
     while True:
         print("\n=== Запуск цикла отправки сообщений ===")
         send_message()
         print("⏳ Ожидание 5 минут до следующей отправки...")
         time.sleep(300)
+
+if __name__ == "__main__":
+    # Запускаем веб-сервер в отдельном потоке, чтобы Render видел открытый порт
+    server_thread = threading.Thread(target=run_web_server)
+    server_thread.daemon = True
+    server_thread.start()
+
+    # Запускаем бесконечный цикл бота
+    bot_loop()
