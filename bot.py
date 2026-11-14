@@ -2,16 +2,20 @@ import os
 import time
 from playwright.sync_api import sync_playwright
 
-# Настройки чата и текста сообщения (весь текст сделан жирным)
+# Настройки чата и текста сообщения
 TARGET_CHAT_NAME = "Чат игроков rahatov" 
-MESSAGE_TEXT = """**Куплю:**
 
-**Донат 1 рубль = 700к**
-**Пополнение через логин на сайте, с договором и откатом**
-
-**Донат авто - любой стоимости**
-
-**Так же беру имущество под выкуп, что бы вам отыграться, процент минимальный**"""
+# Список строк сообщения (каждая строчка выделится жирным отдельно)
+MESSAGE_LINES = [
+    "**Куплю:**",
+    "",
+    "**Донат 1 рубль = 700к**",
+    "**Пополнение через логин на сайте, с договором и откатом**",
+    "",
+    "**Донат авто - любой стоимости**",
+    "",
+    "**Так же беру имущество под выкуп, что бы вам отыграться, процент минимальный**"
+]
 
 def remove_onboarding_overlays(page):
     """Надежно закрывает модальные окна, темы и онбординг в Telegram Web K"""
@@ -62,7 +66,6 @@ def send_message():
         print("✖ Ошибка: не найден секрет TELEGRAM_AUTH_JSON")
         return
 
-    # Записываем сессию во временный файл для Playwright
     with open("auth.json", "w", encoding="utf-8") as f:
         f.write(auth_data)
 
@@ -98,21 +101,36 @@ def send_message():
             input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true']").first
             input_box.wait_for(state="visible", timeout=25000)
             
+            # Собираем весь текст с правильными переносами строк
+            full_text = "\n".join(MESSAGE_LINES)
+
             # --- ЦИКЛ ОТПРАВКИ С ИНТЕРВАЛОМ В 1 ЧАС ---
-            iterations = 3  # Количество отправок за один запуск GitHub Actions
+            iterations = 3  
             
             for i in range(iterations):
                 input_box.click()
                 time.sleep(1)
-                input_box.fill(MESSAGE_TEXT)
-                time.sleep(1)
+                
+                # Очищаем поле на всякий случай и вводим новый текст
+                input_box.fill("")
+                time.sleep(0.5)
+                
+                # Вставляем текст построчно через имитацию набора, чтобы Telegram распознал форматирование
+                for line in MESSAGE_LINES:
+                    if line:
+                        page.keyboard.type(line)
+                    # Нажимаем Shift+Enter для перевода строки внутри одного сообщения
+                    page.keyboard.press("Shift+Enter")
+                
+                time.sleep(0.5)
+                # Отправляем сообщение
                 page.keyboard.press("Enter")
                 
-                print(f"✔ Сообщение успешно отправлено! (Итерация {i+1}/{iterations})")
+                print(f"✔ Новый текст успешно отправлен! (Итерация {i+1}/{iterations})")
                 
                 if i < iterations - 1:
                     print("Ожидание 1 час (3600 секунд) до следующей отправки...")
-                    time.sleep(3600) # Пауза ровно в 1 час
+                    time.sleep(3600)
             
             time.sleep(3)
             
