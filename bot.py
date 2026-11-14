@@ -4,24 +4,21 @@ from playwright.sync_api import sync_playwright
 
 # Вставьте сюда точную ссылку на ваш чат из версии /k/
 TARGET_CHAT_URL = "https://web.telegram.org/k/#-2455061728"
-MESSAGE_TEXT = "Привет!."
+MESSAGE_TEXT = "Привет!"
 
 def dismiss_onboarding(page):
-    """Прокликивает или закрывает приветственные окна настройки (тема, эмодзи)"""
-    for _ in range(4):
-        try:
-            # Ищем любую кнопку подтверждения в модальном окне (Next, Continue, Skip, Done, Продолжить, Далее)
-            btn = page.locator(".popup button.btn-primary, .popup-peer button, button:has-text('Next'), button:has-text('Continue'), button:has-text('Skip'), button:has-text('Продолжить'), button:has-text('Далее')").first
-            if btn.is_visible(timeout=2000):
-                print("Закрываем экран настройки...")
-                btn.click()
-                time.sleep(1.5)
-            else:
-                break
-        except Exception:
-            break
+    """Нажимает на крестик в правом верхнем углу окна настройки"""
+    try:
+        # Ищем крестик закрытия модального окна в Telegram Web K
+        close_btn = page.locator(".popup-close, button.btn-icon.popup-close, .popup-header .btn-icon").first
+        if close_btn.is_visible(timeout=3000):
+            print("Нажимаем на крестик закрытия окна...")
+            close_btn.click()
+            time.sleep(1.5)
+    except Exception:
+        pass
 
-    # На случай если поверх интерфейса всё равно остался слой-заглушка (popup), убираем его принудительно
+    # Страховка: если окно всё еще висит, удаляем слой перекрытия
     page.evaluate("""
         document.querySelectorAll('.popup, .popup-container').forEach(el => el.remove());
     """)
@@ -55,14 +52,14 @@ def send_message():
             page.wait_for_selector("#column-left", timeout=30000)
             time.sleep(3)
 
-            # Проходим/убираем окно с выбором темы и эмодзи
+            # Закрываем окно настройки по крестику
             dismiss_onboarding(page)
 
             print(f"2. Переходим по прямой ссылке в чат: {TARGET_CHAT_URL}")
             page.goto(TARGET_CHAT_URL, timeout=60000)
             time.sleep(3)
             
-            # На случай если окно вылезло повторно после перехода
+            # На случай если окно появилось снова
             dismiss_onboarding(page)
 
             print("3. Ищем поле ввода сообщения...")
