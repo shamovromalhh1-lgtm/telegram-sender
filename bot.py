@@ -81,13 +81,13 @@ def send_message():
             print("2. Ожидаем 30 секунд для прогрузки чата...")
             time.sleep(30)
 
-            print("3. Удаляем оверлеи (если есть)...")
+            print("3. Удаляем оверлеи и кликаем по центру экрана...")
             remove_onboarding_overlays(page)
+            page.mouse.click(640, 400)
             time.sleep(2)
 
             print("4. Ищем поле ввода сообщения в чате...")
-            # Пробуем универсальные селекторы для поля ввода в Telegram Web A
-            input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true'], .composer-input input, div.editable-input").first
+            input_box = page.locator("div[contenteditable='true']").last
             
             print("Ожидаем видимости поля ввода (таймаут 20 сек)...")
             input_box.wait_for(state="visible", timeout=20000)
@@ -98,7 +98,8 @@ def send_message():
             
             print("5. Вставляем текст через JavaScript...")
             page.evaluate(f"""(text) => {{
-                const box = document.querySelector("div.input-message-input[contenteditable='true'], div[contenteditable='true'], .composer-input input, div.editable-input");
+                const boxes = document.querySelectorAll("div[contenteditable='true']");
+                const box = boxes[boxes.length - 1];
                 if (box) {{
                     box.focus();
                     box.innerText = text;
