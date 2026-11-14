@@ -9,18 +9,27 @@ CLOSE_X = 1245
 CLOSE_Y = 35
 
 def force_close_at_coords(page, x, y):
-    """Кликаем по координатам и через мышь, и напрямую через DOM-элемент в этой точке"""
-    # Проверяем, какой элемент находится в этих координатах
-    el_info = page.evaluate(f"""() => {{
+    """Находит родительскую кнопку под ripple-слоем и эмулирует реальное нажатие мыши"""
+    clicked_tag = page.evaluate(f"""() => {{
         const el = document.elementFromPoint({x}, {y});
         if (!el) return 'none';
-        el.click();
-        if (el.parentElement) el.parentElement.click();
-        return el.tagName + '.' + (el.className || '');
+        const btn = el.closest('button, .btn-icon, [role="button"]') || el;
+        ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(type => {{
+            btn.dispatchEvent(new MouseEvent(type, {{
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: {x},
+                clientY: {y}
+            }}));
+        }});
+        return btn.tagName + '.' + (btn.className || '');
     }}""")
-    print(f"Клик по ({x}, {y}) -> элемент: {el_info}")
+    print(f"Нажата кнопка в ({x}, {y}) -> {clicked_tag}")
     page.mouse.move(x, y)
-    page.mouse.click(x, y)
+    page.mouse.down()
+    time.sleep(0.1)
+    page.mouse.up()
 
 def send_message():
     auth_data = os.environ.get("TELEGRAM_AUTH_JSON")
@@ -47,17 +56,15 @@ def send_message():
             print("1. Загружаем Telegram Web...")
             page.goto("https://web.telegram.org/k/", timeout=60000)
             page.wait_for_selector("#column-left", timeout=30000)
-            
-            # Ждем подольше (6 сек), чтобы окно настройки точно успело вылезти
-            time.sleep(6)
+            time.sleep(5)
+
             force_close_at_coords(page, CLOSE_X, CLOSE_Y)
             time.sleep(2)
 
             print(f"2. Переходим по прямой ссылке в чат: {TARGET_CHAT_URL}")
             page.goto(TARGET_CHAT_URL, timeout=60000)
-            
-            # Ждем 5 секунд после перехода и снова закрываем окно, если оно открылось здесь
             time.sleep(5)
+
             force_close_at_coords(page, CLOSE_X, CLOSE_Y)
             time.sleep(2)
 
