@@ -5,40 +5,30 @@ from playwright.sync_api import sync_playwright
 TARGET_CHAT_URL = "https://web.telegram.org/k/#-2455061728"
 MESSAGE_TEXT = "Привет! Сообщение отправлено с личного аккаунта."
 
-def close_settings_screen(page):
-    """Находит реальную кнопку закрытия/назад (не лампочку!) и закрывает экран настройки"""
-    closed = page.evaluate("""() => {
-        // Ищем все кнопки в шапке экрана (кроме лампочки lamp_filled)
-        const btns = Array.from(document.querySelectorAll('button.btn-icon'));
-        for (const btn of btns) {
-            const cls = btn.className || '';
-            const txt = btn.textContent || '';
-            // Ищем иконку крестика или стрелки назад
-            if (cls.includes('close') || cls.includes('back') || cls.includes('arrow') || txt.includes('close') || txt.includes('arrow_left')) {
-                ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(type => {
-                    btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
-                });
-                return 'Нажата кнопка: ' + cls;
-            }
-        }
-        return 'Кнопка закрытия не найдена';
-    }""")
-    print(closed)
-
-    # Дополнительно проверяем: если правая колонка или слайдер настройки перекрывает чаты — скрываем его
+def remove_onboarding_overlays(page):
+    """Агрессивно удаляет любые всплывающие окна настройки, темы и оверлеи из DOM"""
     page.evaluate("""() => {
-        // Если открыт слайдер в левой или правой колонке, возвращаем фокус на список чатов
-        const leftTabs = document.querySelector('#column-left .tabs-container');
-        if (leftTabs && leftTabs.children.length > 1) {
-            // Удаляем все дополнительные вкладки/экраны настройки поверх основного списка чатов
-            while (leftTabs.children.length > 1) {
-                leftTabs.lastElementChild.remove();
-            }
-        }
-        // Скрываем правую колонку, если в ней открыты настройки
-        const rightCol = document.querySelector('#column-right');
-        if (rightCol && rightCol.classList.contains('is-active')) {
-            rightCol.classList.remove('is-active');
+        // Список ключевых слов классов, которые использует Telegram для модалок и онбординга
+        const unwantedSelectors = [
+            '.popup', '.modal', '.auth-modal', '.welcome', '.settings', 
+            '[class*="popup"]', '[class*="modal"]', '[class*="welcome"]',
+            '[class*="onboarding"]', '[class*="intro"]', '[class*="backdrop"]',
+            '[class*="overlay"]'
+        ];
+        
+        unwantedSelectors.forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => {
+                // Не трогаем основные колонки интерфейса
+                if (el.id !== 'column-left' && el.id !== 'column-center' && el.id !== 'column-right') {
+                    el.remove();
+                }
+            });
+        });
+
+        // Снимаем возможные блокировки прокрутки и кликов с тела страницы
+        if (document.body) {
+            document.body.style.overflow = 'auto';
+            document.body.classList.remove('modal-open');
         }
     }""")
 
@@ -67,20 +57,24 @@ def send_message():
             print("1. Загружаем Telegram Web...")
             page.goto("https://web.telegram.org/k/", timeout=60000)
             page.wait_for_selector("#column-left", timeout=30000)
-            time.sleep(5)
+            time.sleep(4)
 
-            close_settings_screen(page)
+            # Уничтожаем экран настройки, если он появился
+            print("Очищаем возможные экраны настройки...")
+            remove_onboarding_overlays(page)
             time.sleep(2)
 
             print(f"2. Переходим по прямой ссылке в чат: {TARGET_CHAT_URL}")
             page.goto(TARGET_CHAT_URL, timeout=60000)
-            time.sleep(5)
+            time.sleep(4)
 
-            close_settings_screen(page)
-            time.sleep(2)
+            # Повторная зачистка на случай вторичного появления после перехода
+            remove_onboarding_overlays(page)
+            time.sleep(1)
 
             print("3. Ищем поле ввода сообщения...")
-            input_box = page.locator("div.input-message-input[contenteditable='true']").first
+            # Ищем поле ввода по любому возможному селектору версии K
+            input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true']").first
             input_box.wait_for(state="visible", timeout=25000)
             
             input_box.click()
