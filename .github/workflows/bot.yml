@@ -1,0 +1,30 @@
+name: Personal Telegram Sender
+
+on:
+  schedule:
+    - cron: '0 * * * *' # Запуск каждый час. Если нужно изменить, например, каждые 2 часа: '0 */2 * * *'
+  workflow_dispatch: # Добавляет кнопку ручного запуска прямо на сайт GitHub
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Клонирование репозитория
+      uses: actions/checkout@v4
+
+    - name: Настройка Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Установка Playwright и браузера
+      run: |
+        pip install playwright
+        playwright install chromium
+        playwright install-deps chromium
+
+    - name: Запуск скрипта отправки
+      env:
+        TELEGRAM_AUTH_JSON: ${{ secrets.TELEGRAM_AUTH_JSON }}
+      run: python bot.py
