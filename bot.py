@@ -4,8 +4,8 @@ import time
 from playwright.sync_api import sync_playwright
 
 # Ссылка на нужный чат или канал (откройте его в Telegram Web и скопируйте ссылку из адресной строки)
-TARGET_CHAT_URL = "https://web.telegram.org/k/#@username_или_id_чата"
-MESSAGE_TEXT = "Привет! Сообщение отправлено с личного аккаунта."
+TARGET_CHAT_URL = "https://web.telegram.org/a/#-1002455061728"
+MESSAGE_TEXT = "Привет!"
 
 def send_message():
     auth_data = os.environ.get("TELEGRAM_AUTH_JSON")
