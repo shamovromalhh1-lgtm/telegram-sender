@@ -2,8 +2,9 @@ name: Personal Telegram Sender
 
 on:
   schedule:
-    - cron: '10 * * * *' # Запуск в 10 минут каждого часа (сервера менее загружены)
-  workflow_dispatch: # Добавляет кнопку ручного запуска прямо на сайт GitHub
+    # Запуск в 10 минут каждого часа (сервера менее загружены)
+    - cron: '10 * * * *'
+  workflow_dispatch: # добавляет кнопку ручного запуска прямо на сайт github
 
 jobs:
   run-bot:
