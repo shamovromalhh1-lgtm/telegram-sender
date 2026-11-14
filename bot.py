@@ -4,17 +4,12 @@ import threading
 from flask import Flask
 from playwright.sync_api import sync_playwright
 
-# --- МИНИ-СЕРВЕР ДЛЯ RENDER (чтобы веб-сервис не падал по таймауту) ---
+# --- МИНИ-СЕРВЕР ДЛЯ RENDER (ДОЛЖЕН СТАРТОВАТЬ ПЕРВЫМ) ---
 app = Flask(__name__)
 
 @app.route("/")
 def home():
     return "Telegram Bot is running!", 200
-
-def run_web_server():
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-# ---------------------------------------------------------------------
 
 # ТВОЙ ТЕКСТ С ЖИРНЫМ ШРИФТОМ
 MESSAGE_TEXT = """**Куплю:**
@@ -57,7 +52,6 @@ def remove_onboarding_overlays(page):
     }""")
 
 def send_message():
-    # Проверяем путь к файлу авторизации (на Render в Secret Files или локально)
     auth_path = "/etc/secrets/auth.json"
     if not os.path.exists(auth_path):
         auth_path = "auth.json"
@@ -131,6 +125,8 @@ def send_message():
             browser.close()
 
 def bot_loop():
+    # Небольшая пауза при старте, чтобы веб-сервер успел открыться на Render
+    time.sleep(5)
     while True:
         print("\n=== Запуск цикла отправки сообщений ===")
         send_message()
@@ -138,10 +134,11 @@ def bot_loop():
         time.sleep(300)
 
 if __name__ == "__main__":
-    # Запускаем веб-сервер в отдельном потоке для Render
-    server_thread = threading.Thread(target=run_web_server)
-    server_thread.daemon = True
-    server_thread.start()
+    # Запускаем цикл бота в фоновом потоке
+    bot_thread = threading.Thread(target=bot_loop)
+    bot_thread.daemon = True
+    bot_thread.start()
 
-    # Запускаем бесконечный цикл бота
-    bot_loop()
+    # Главный поток сразу отдает Render'у работу веб-сервера (порт открывается мгновенно!)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
