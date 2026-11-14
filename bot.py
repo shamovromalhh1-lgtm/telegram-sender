@@ -3,7 +3,7 @@ import time
 from playwright.sync_api import sync_playwright
 
 # Вставьте сюда точную ссылку на чат (например: "https://web.telegram.org/k/#-1001234567890" или "https://web.telegram.org/k/#@username")
-TARGET_CHAT_URL = "https://web.telegram.org/k/#-1001414337259"
+TARGET_CHAT_URL = "https://web.telegram.org/k/#-1414337259"
 MESSAGE_TEXT = "Привет! Сообщение отправлено с личного аккаунта."
 
 def send_message():
