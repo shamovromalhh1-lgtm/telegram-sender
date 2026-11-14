@@ -62,7 +62,11 @@ def send_message():
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
-            args=["--disable-blink-features=AutomationControlled"]
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-setuid-sandbox"
+            ]
         )
         context = browser.new_context(
             storage_state=auth_path,
@@ -72,11 +76,11 @@ def send_message():
         page = context.new_page()
 
         try:
-            print("1. Загружаем Telegram Web...")
-            page.goto("https://web.telegram.org/k/", timeout=60000)
+            print("1. Загружаем Telegram Web (версия A)...")
+            page.goto("https://web.telegram.org/a/", timeout=60000)
             
             print("2. Ожидаем прогрузку интерфейса...")
-            page.wait_for_selector("#column-left", timeout=40000)
+            page.wait_for_selector(".Transition, #auth-pages, .row", timeout=40000)
             time.sleep(6)
 
             remove_onboarding_overlays(page)
@@ -85,32 +89,20 @@ def send_message():
             for chat_name in TARGET_CHATS:
                 print(f"\n--- Ищем и переходим к чату: '{chat_name}' ---")
                 
-                if page.url != "https://web.telegram.org/k/":
-                    page.goto("https://web.telegram.org/k/", timeout=30000)
+                if "telegram.org" not in page.url:
+                    page.goto("https://web.telegram.org/a/", timeout=30000)
                     time.sleep(3)
-                    remove_onboarding_overlays(page)
 
-                # Сначала ищем в видимой левой панели
-                chat_item = page.locator("#column-left").get_by_text(chat_name).first
+                print("Используем строку поиска...")
+                search_input = page.locator("input.input-search__input, input[placeholder*='Search'], input[placeholder*='Поиск']").first
+                search_input.wait_for(state="visible", timeout=15000)
+                search_input.click()
+                search_input.fill(chat_name)
+                time.sleep(3)
                 
-                try:
-                    chat_item.wait_for(state="visible", timeout=5000)
-                    chat_item.click()
-                except Exception:
-                    print("Чат не найден на первом экране, используем строку поиска Telegram...")
-                    
-                    # Универсальный поиск строки в Telegram Web K
-                    search_input = page.locator("input.search-input, input[placeholder*='Search'], input[placeholder*='Поиск']").first
-                    search_input.wait_for(state="visible", timeout=10000)
-                    search_input.click()
-                    search_input.fill(chat_name)
-                    time.sleep(2.5)
-                    
-                    # Кликаем по первому результату поиска
-                    result_item = page.locator(".search-super-results .chat-item, .found-peers .chat-item, #column-left .chat-item, .sidebar-content .chat-item").first
-                    result_item.wait_for(state="visible", timeout=10000)
-                    result_item.click()
-
+                result_item = page.locator(".search-content .chat-item, .ListItem, .chat-list-item").first
+                result_item.wait_for(state="visible", timeout=10000)
+                result_item.click()
                 time.sleep(2)
 
                 print("3. Вводим текст через JS и отправляем...")
@@ -138,7 +130,7 @@ def send_message():
             time.sleep(3)
             
         except Exception as e:
-            print(f"✖ Ошибка: {e}")
+            print(f"✖ Ошибка выполнения: {e}")
             page.screenshot(path="error.png")
         finally:
             browser.close()
