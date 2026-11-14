@@ -80,9 +80,9 @@ def send_message():
             remove_onboarding_overlays(page)
             time.sleep(2)
 
-            print(f"2. Ищем чат '{TARGET_CHAT_NAME}' в списке слева...")
-            # Ищем элемент списка чатов, содержащий нужное название, и кликаем по нему
-            chat_item = page.locator(f"#column-left div.chat-item:has-text('{TARGET_CHAT_NAME}')").first
+            print(f"2. Ищем чат '{TARGET_CHAT_NAME}' по тексту...")
+            # Используем встроенный поиск Playwright по видимому тексту
+            chat_item = page.locator("#column-left").get_by_text(TARGET_CHAT_NAME).first
             chat_item.wait_for(state="visible", timeout=15000)
             chat_item.click()
             time.sleep(2)
