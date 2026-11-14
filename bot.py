@@ -6,14 +6,15 @@ TARGET_CHAT_URL = "https://web.telegram.org/k/#-2455061728"
 MESSAGE_TEXT = "Привет! Сообщение отправлено с личного аккаунта."
 
 def remove_onboarding_overlays(page):
-    """Агрессивно удаляет любые всплывающие окна настройки, темы и оверлеи из DOM"""
+    """Агрессивно удаляет любые всплывающие окна настройки, темы и онбординга из DOM"""
     page.evaluate("""() => {
-        // Список ключевых слов классов, которые использует Telegram для модалок и онбординга
+        // Расширенный список селекторов для модалок, подсказок и онбординга в Telegram Web K
         const unwantedSelectors = [
             '.popup', '.modal', '.auth-modal', '.welcome', '.settings', 
+            '.tooltip', '.tip', '.popover',
             '[class*="popup"]', '[class*="modal"]', '[class*="welcome"]',
             '[class*="onboarding"]', '[class*="intro"]', '[class*="backdrop"]',
-            '[class*="overlay"]'
+            '[class*="overlay"]', '[class*="tip"]', '[class*="tooltip"]'
         ];
         
         unwantedSelectors.forEach(sel => {
@@ -23,6 +24,16 @@ def remove_onboarding_overlays(page):
                     el.remove();
                 }
             });
+        });
+
+        // Дополнительно ищем и удаляем всплывающие блоки по характерному тексту (Appearance, Next Tip)
+        const allDivs = document.querySelectorAll('div');
+        allDivs.forEach(el => {
+            const text = el.innerText || '';
+            if ((text.includes('Appearance') || text.includes('Color theme') || text.includes('Next Tip')) && 
+                el.childElementCount < 15 && !el.id.includes('column')) {
+                el.remove();
+            }
         });
 
         // Снимаем возможные блокировки прокрутки и кликов с тела страницы
@@ -59,7 +70,7 @@ def send_message():
             page.wait_for_selector("#column-left", timeout=30000)
             time.sleep(4)
 
-            # Уничтожаем экран настройки, если он появился
+            # Уничтожаем экран настройки и онбординга, если он появился
             print("Очищаем возможные экраны настройки...")
             remove_onboarding_overlays(page)
             time.sleep(2)
@@ -73,7 +84,6 @@ def send_message():
             time.sleep(1)
 
             print("3. Ищем поле ввода сообщения...")
-            # Ищем поле ввода по любому возможному селектору версии K
             input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true']").first
             input_box.wait_for(state="visible", timeout=25000)
             
