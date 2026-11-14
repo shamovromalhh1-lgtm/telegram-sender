@@ -2,26 +2,12 @@ import os
 import time
 from playwright.sync_api import sync_playwright
 
-# Вставьте сюда точную ссылку на ваш чат из версии /k/
 TARGET_CHAT_URL = "https://web.telegram.org/k/#-2455061728"
 MESSAGE_TEXT = "Привет!"
 
-def dismiss_onboarding(page):
-    """Нажимает на крестик в правом верхнем углу окна настройки"""
-    try:
-        # Ищем крестик закрытия модального окна в Telegram Web K
-        close_btn = page.locator(".popup-close, button.btn-icon.popup-close, .popup-header .btn-icon").first
-        if close_btn.is_visible(timeout=3000):
-            print("Нажимаем на крестик закрытия окна...")
-            close_btn.click()
-            time.sleep(1.5)
-    except Exception:
-        pass
-
-    # Страховка: если окно всё еще висит, удаляем слой перекрытия
-    page.evaluate("""
-        document.querySelectorAll('.popup, .popup-container').forEach(el => el.remove());
-    """)
+# Ваши координаты крестика закрытия окна
+CLOSE_X = 1245
+CLOSE_Y = 35
 
 def send_message():
     auth_data = os.environ.get("TELEGRAM_AUTH_JSON")
@@ -47,20 +33,21 @@ def send_message():
         try:
             print("1. Загружаем Telegram Web...")
             page.goto("https://web.telegram.org/k/", timeout=60000)
-            
-            # Ждем загрузки интерфейса
             page.wait_for_selector("#column-left", timeout=30000)
             time.sleep(3)
 
-            # Закрываем окно настройки по крестику
-            dismiss_onboarding(page)
+            # Кликаем по крестику
+            print(f"Закрываем окно по координатам ({CLOSE_X}, {CLOSE_Y})...")
+            page.mouse.click(CLOSE_X, CLOSE_Y)
+            time.sleep(2)
 
             print(f"2. Переходим по прямой ссылке в чат: {TARGET_CHAT_URL}")
             page.goto(TARGET_CHAT_URL, timeout=60000)
             time.sleep(3)
-            
-            # На случай если окно появилось снова
-            dismiss_onboarding(page)
+
+            # На случай если окно появилось повторно после перехода
+            page.mouse.click(CLOSE_X, CLOSE_Y)
+            time.sleep(1.5)
 
             print("3. Ищем поле ввода сообщения...")
             input_box = page.locator("div.input-message-input[contenteditable='true']").first
