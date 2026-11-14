@@ -58,6 +58,7 @@ def send_message():
         return
 
     with sync_playwright() as p:
+        print("Запуск браузера Chromium...")
         browser = p.chromium.launch(
             headless=True,
             args=[
@@ -77,21 +78,27 @@ def send_message():
             print("1. Открываем прямую ссылку на чат...")
             page.goto(TARGET_LINK, timeout=60000)
             
-            print("2. Ожидаем 1 минуту для полной прогрузки Telegram Web и сессии...")
-            time.sleep(60) # Ровно 1 минута на прогрузку
+            print("2. Ожидаем 30 секунд для прогрузки чата...")
+            time.sleep(30)
 
+            print("3. Удаляем оверлеи (если есть)...")
             remove_onboarding_overlays(page)
             time.sleep(2)
 
-            print("3. Вводим текст через JS и отправляем...")
-            input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true']").first
-            input_box.wait_for(state="visible", timeout=25000)
+            print("4. Ищем поле ввода сообщения в чате...")
+            # Пробуем универсальные селекторы для поля ввода в Telegram Web A
+            input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true'], .composer-input input, div.editable-input").first
+            
+            print("Ожидаем видимости поля ввода (таймаут 20 сек)...")
+            input_box.wait_for(state="visible", timeout=20000)
+            print("✔ Поле ввода найдено!")
             
             input_box.click()
             time.sleep(1)
             
+            print("5. Вставляем текст через JavaScript...")
             page.evaluate(f"""(text) => {{
-                const box = document.querySelector("div.input-message-input[contenteditable='true'], div[contenteditable='true']");
+                const box = document.querySelector("div.input-message-input[contenteditable='true'], div[contenteditable='true'], .composer-input input, div.editable-input");
                 if (box) {{
                     box.focus();
                     box.innerText = text;
@@ -100,13 +107,13 @@ def send_message():
             }}""", MESSAGE_TEXT)
             
             time.sleep(1.5)
+            print("6. Нажимаем Enter для отправки...")
             page.keyboard.press("Enter")
             print("✔ Сообщение успешно отправлено в чат по прямой ссылке!")
             time.sleep(3)
             
         except Exception as e:
-            print(f"✖ Ошибка выполнения: {e}")
-            page.screenshot(path="error.png")
+            print(f"✖ Ошибка выполнения на конкретном шаге: {e}")
         finally:
             browser.close()
 
