@@ -97,14 +97,17 @@ def send_message():
                     chat_item.wait_for(state="visible", timeout=5000)
                     chat_item.click()
                 except Exception:
-                    print("Чат не найден на первом экране, используем поиск Telegram...")
-                    search_box = page.locator("input#input-search").first
-                    search_box.wait_for(state="visible", timeout=10000)
-                    search_box.click()
-                    search_box.fill(chat_name)
-                    time.sleep(2)
+                    print("Чат не найден на первом экране, используем строку поиска Telegram...")
                     
-                    result_item = page.locator(".search-super-results .chat-item, .found-peers .chat-item, #column-left .chat-item").first
+                    # Универсальный поиск строки в Telegram Web K
+                    search_input = page.locator("input.search-input, input[placeholder*='Search'], input[placeholder*='Поиск']").first
+                    search_input.wait_for(state="visible", timeout=10000)
+                    search_input.click()
+                    search_input.fill(chat_name)
+                    time.sleep(2.5)
+                    
+                    # Кликаем по первому результату поиска
+                    result_item = page.locator(".search-super-results .chat-item, .found-peers .chat-item, #column-left .chat-item, .sidebar-content .chat-item").first
                     result_item.wait_for(state="visible", timeout=10000)
                     result_item.click()
 
