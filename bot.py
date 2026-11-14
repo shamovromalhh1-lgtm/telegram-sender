@@ -2,9 +2,9 @@ import os
 import time
 from playwright.sync_api import sync_playwright
 
-# Точное название чата, как оно написано в Telegram (например, "Чат игроков")
-TARGET_CHAT_NAME = "Чат игроков rahatov.mta" 
-MESSAGE_TEXT = "Привет!"
+# Точная часть названия чата из твоего списка
+TARGET_CHAT_NAME = "Чат игроков rahatov" 
+MESSAGE_TEXT = "1337"
 
 def remove_onboarding_overlays(page):
     """Надежно закрывает модальное окно кликом на крестик или удаляет его из DOM"""
@@ -80,18 +80,11 @@ def send_message():
             remove_onboarding_overlays(page)
             time.sleep(2)
 
-            print(f"2. Ищем чат через поиск: '{TARGET_CHAT_NAME}'...")
-            # Кликаем в поисковую строку в левом верхнем углу
-            search_input = page.locator("input.search-input, input[placeholder*='Search'], input[placeholder*='Поиск']").first
-            search_input.wait_for(state="visible", timeout=15000)
-            search_input.click()
-            search_input.fill(TARGET_CHAT_NAME)
-            time.sleep(3) # Ждем выдачи результатов поиска
-
-            # Кликаем на первый результат в списке найденного
-            result_item = page.locator("#column-left .search-content .chat-item, #column-left .chat-item").first
-            result_item.wait_for(state="visible", timeout=10000)
-            result_item.click()
+            print(f"2. Ищем чат '{TARGET_CHAT_NAME}' в списке слева...")
+            # Ищем элемент списка чатов, содержащий нужное название, и кликаем по нему
+            chat_item = page.locator(f"#column-left div.chat-item:has-text('{TARGET_CHAT_NAME}')").first
+            chat_item.wait_for(state="visible", timeout=15000)
+            chat_item.click()
             time.sleep(2)
 
             print("3. Ищем поле ввода сообщения...")
@@ -104,7 +97,7 @@ def send_message():
             time.sleep(1)
             page.keyboard.press("Enter")
             
-            print("✔ Сообщение успешно отправлено в нужный чат!")
+            print(f"✔ Сообщение '{MESSAGE_TEXT}' успешно отправлено в чат!")
             time.sleep(3)
             
         except Exception as e:
