@@ -3,11 +3,24 @@ import time
 from playwright.sync_api import sync_playwright
 
 TARGET_CHAT_URL = "https://web.telegram.org/k/#-2455061728"
-MESSAGE_TEXT = "Привет!"
+MESSAGE_TEXT = "Привет! Сообщение отправлено с личного аккаунта."
 
-# Ваши координаты крестика закрытия окна
 CLOSE_X = 1245
 CLOSE_Y = 35
+
+def force_close_at_coords(page, x, y):
+    """Кликаем по координатам и через мышь, и напрямую через DOM-элемент в этой точке"""
+    # Проверяем, какой элемент находится в этих координатах
+    el_info = page.evaluate(f"""() => {{
+        const el = document.elementFromPoint({x}, {y});
+        if (!el) return 'none';
+        el.click();
+        if (el.parentElement) el.parentElement.click();
+        return el.tagName + '.' + (el.className || '');
+    }}""")
+    print(f"Клик по ({x}, {y}) -> элемент: {el_info}")
+    page.mouse.move(x, y)
+    page.mouse.click(x, y)
 
 def send_message():
     auth_data = os.environ.get("TELEGRAM_AUTH_JSON")
@@ -34,20 +47,19 @@ def send_message():
             print("1. Загружаем Telegram Web...")
             page.goto("https://web.telegram.org/k/", timeout=60000)
             page.wait_for_selector("#column-left", timeout=30000)
-            time.sleep(3)
-
-            # Кликаем по крестику
-            print(f"Закрываем окно по координатам ({CLOSE_X}, {CLOSE_Y})...")
-            page.mouse.click(CLOSE_X, CLOSE_Y)
+            
+            # Ждем подольше (6 сек), чтобы окно настройки точно успело вылезти
+            time.sleep(6)
+            force_close_at_coords(page, CLOSE_X, CLOSE_Y)
             time.sleep(2)
 
             print(f"2. Переходим по прямой ссылке в чат: {TARGET_CHAT_URL}")
             page.goto(TARGET_CHAT_URL, timeout=60000)
-            time.sleep(3)
-
-            # На случай если окно появилось повторно после перехода
-            page.mouse.click(CLOSE_X, CLOSE_Y)
-            time.sleep(1.5)
+            
+            # Ждем 5 секунд после перехода и снова закрываем окно, если оно открылось здесь
+            time.sleep(5)
+            force_close_at_coords(page, CLOSE_X, CLOSE_Y)
+            time.sleep(2)
 
             print("3. Ищем поле ввода сообщения...")
             input_box = page.locator("div.input-message-input[contenteditable='true']").first
