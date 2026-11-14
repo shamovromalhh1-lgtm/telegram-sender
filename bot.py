@@ -6,27 +6,34 @@ TARGET_CHAT_URL = "https://web.telegram.org/k/#-2455061728"
 MESSAGE_TEXT = "Привет! Сообщение отправлено с личного аккаунта."
 
 def remove_onboarding_overlays(page):
-    """Агрессивно удаляет любые всплывающие окна настройки, темы и онбординга из DOM"""
+    """Надежно закрывает модальное окно кликом на крестик или удаляет его из DOM"""
+    try:
+        # Ищем крестик в правом верхнем углу модалки
+        close_btn = page.locator("svg.icon-close, button.close-button, div.modal button, [class*='close']").last
+        if close_btn.is_visible(timeout=3000):
+            close_btn.click()
+            print("✔ Кликнули по крестику закрытия модалки.")
+            time.sleep(1)
+    except Exception:
+        pass
+
     page.evaluate("""() => {
-        // Расширенный список селекторов для модалок, подсказок и онбординга в Telegram Web K
         const unwantedSelectors = [
             '.popup', '.modal', '.auth-modal', '.welcome', '.settings', 
             '.tooltip', '.tip', '.popover',
             '[class*="popup"]', '[class*="modal"]', '[class*="welcome"]',
             '[class*="onboarding"]', '[class*="intro"]', '[class*="backdrop"]',
-            '[class*="overlay"]', '[class*="tip"]', '[class*="tooltip"]'
+            '[class*="overlay"]'
         ];
         
         unwantedSelectors.forEach(sel => {
             document.querySelectorAll(sel).forEach(el => {
-                // Не трогаем основные колонки интерфейса
                 if (el.id !== 'column-left' && el.id !== 'column-center' && el.id !== 'column-right') {
                     el.remove();
                 }
             });
         });
 
-        // Дополнительно ищем и удаляем всплывающие блоки по характерному тексту (Appearance, Next Tip)
         const allDivs = document.querySelectorAll('div');
         allDivs.forEach(el => {
             const text = el.innerText || '';
@@ -36,7 +43,6 @@ def remove_onboarding_overlays(page):
             }
         });
 
-        // Снимаем возможные блокировки прокрутки и кликов с тела страницы
         if (document.body) {
             document.body.style.overflow = 'auto';
             document.body.classList.remove('modal-open');
@@ -70,8 +76,8 @@ def send_message():
             page.wait_for_selector("#column-left", timeout=30000)
             time.sleep(4)
 
-            # Уничтожаем экран настройки и онбординга, если он появился
-            print("Очищаем возможные экраны настройки...")
+            # Закрываем модалку кликом по крестику и чистим DOM
+            print("Закрываем приветственное окно настройки...")
             remove_onboarding_overlays(page)
             time.sleep(2)
 
@@ -79,7 +85,6 @@ def send_message():
             page.goto(TARGET_CHAT_URL, timeout=60000)
             time.sleep(4)
 
-            # Повторная зачистка на случай вторичного появления после перехода
             remove_onboarding_overlays(page)
             time.sleep(1)
 
