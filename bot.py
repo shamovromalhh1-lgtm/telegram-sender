@@ -2,19 +2,19 @@ import os
 import time
 from playwright.sync_api import sync_playwright
 
-# Точная часть названия чата из твоего списка
+# Настройки чата и текста сообщения (весь текст сделан жирным)
 TARGET_CHAT_NAME = "Чат игроков rahatov" 
-MESSAGE_TEXT = "**Куплю:
+MESSAGE_TEXT = """**Куплю:**
 
-Донат 1 рубль = 700к
-Пополнение через логин на сайте, с договором и откатом
+**Донат 1 рубль = 700к**
+**Пополнение через логин на сайте, с договором и откатом**
 
-Донат авто - любой стоимости
+**Донат авто - любой стоимости**
 
-Так же беру имущество под выкуп, что бы вам отыграться, процент минимальный**"
+**Так же беру имущество под выкуп, что бы вам отыграться, процент минимальный**"""
 
 def remove_onboarding_overlays(page):
-    """Надежно закрывает модальное окно кликом на крестик или удаляет его из DOM"""
+    """Надежно закрывает модальные окна, темы и онбординг в Telegram Web K"""
     try:
         close_btn = page.locator("svg.icon-close, button.close-button, div.modal button, [class*='close']").last
         if close_btn.is_visible(timeout=3000):
@@ -62,6 +62,7 @@ def send_message():
         print("✖ Ошибка: не найден секрет TELEGRAM_AUTH_JSON")
         return
 
+    # Записываем сессию во временный файл для Playwright
     with open("auth.json", "w", encoding="utf-8") as f:
         f.write(auth_data)
 
@@ -83,12 +84,11 @@ def send_message():
             page.wait_for_selector("#column-left", timeout=30000)
             time.sleep(4)
 
-            print("Закрываем окно настройки...")
+            print("Закрываем всплывающие окна...")
             remove_onboarding_overlays(page)
             time.sleep(2)
 
             print(f"2. Ищем чат '{TARGET_CHAT_NAME}' по тексту...")
-            # Используем встроенный поиск Playwright по видимому тексту
             chat_item = page.locator("#column-left").get_by_text(TARGET_CHAT_NAME).first
             chat_item.wait_for(state="visible", timeout=15000)
             chat_item.click()
@@ -98,13 +98,22 @@ def send_message():
             input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true']").first
             input_box.wait_for(state="visible", timeout=25000)
             
-            input_box.click()
-            time.sleep(1)
-            input_box.fill(MESSAGE_TEXT)
-            time.sleep(1)
-            page.keyboard.press("Enter")
+            # --- ЦИКЛ ОТПРАВКИ С ИНТЕРВАЛОМ В 1 ЧАС ---
+            iterations = 3  # Количество отправок за один запуск GitHub Actions
             
-            print(f"✔ Сообщение '{MESSAGE_TEXT}' успешно отправлено в чат!")
+            for i in range(iterations):
+                input_box.click()
+                time.sleep(1)
+                input_box.fill(MESSAGE_TEXT)
+                time.sleep(1)
+                page.keyboard.press("Enter")
+                
+                print(f"✔ Сообщение успешно отправлено! (Итерация {i+1}/{iterations})")
+                
+                if i < iterations - 1:
+                    print("Ожидание 1 час (3600 секунд) до следующей отправки...")
+                    time.sleep(3600) # Пауза ровно в 1 час
+            
             time.sleep(3)
             
         except Exception as e:
