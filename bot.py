@@ -2,13 +2,13 @@ import os
 import time
 from playwright.sync_api import sync_playwright
 
-TARGET_CHAT_URL = "https://web.telegram.org/k/#-2455061728"
-MESSAGE_TEXT = "Привет! Сообщение отправлено с личного аккаунта."
+# Часть названия чата, как он отображается в списке слева (например: "Чат игроков" или "Помощник")
+TARGET_CHAT_NAME = "Чат игроков rahatov.mta" 
+MESSAGE_TEXT = "Привет!"
 
 def remove_onboarding_overlays(page):
     """Надежно закрывает модальное окно кликом на крестик или удаляет его из DOM"""
     try:
-        # Ищем крестик в правом верхнем углу модалки
         close_btn = page.locator("svg.icon-close, button.close-button, div.modal button, [class*='close']").last
         if close_btn.is_visible(timeout=3000):
             close_btn.click()
@@ -76,17 +76,15 @@ def send_message():
             page.wait_for_selector("#column-left", timeout=30000)
             time.sleep(4)
 
-            # Закрываем модалку кликом по крестику и чистим DOM
-            print("Закрываем приветственное окно настройки...")
+            print("Закрываем окно настройки...")
             remove_onboarding_overlays(page)
             time.sleep(2)
 
-            print(f"2. Переходим по прямой ссылке в чат: {TARGET_CHAT_URL}")
-            page.goto(TARGET_CHAT_URL, timeout=60000)
-            time.sleep(4)
-
-            remove_onboarding_overlays(page)
-            time.sleep(1)
+            print(f"2. Ищем чат '{TARGET_CHAT_NAME}' в списке и кликаем...")
+            chat_item = page.locator(f"#column-left .chat-item:has-text('{TARGET_CHAT_NAME}')").first
+            chat_item.wait_for(state="visible", timeout=15000)
+            chat_item.click()
+            time.sleep(2)
 
             print("3. Ищем поле ввода сообщения...")
             input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true']").first
