@@ -12,7 +12,11 @@ MESSAGE_TEXT = """**Куплю:**
 
 **Так же беру имущество под выкуп, что бы вам отыграться, процент минимальный**"""
 
-TARGET_CHAT_NAME = "Чат игроков rahatov" 
+# СПИСОК ЧАТОВ, куда нужно отправлять сообщения
+TARGET_CHATS = [
+    "Чат игроков rahatov",       
+    "Второй чат или название",   
+]
 
 def remove_onboarding_overlays(page):
     try:
@@ -68,33 +72,41 @@ def send_message():
             remove_onboarding_overlays(page)
             time.sleep(2)
 
-            print(f"2. Ищем чат '{TARGET_CHAT_NAME}'...")
-            chat_item = page.locator("#column-left").get_by_text(TARGET_CHAT_NAME).first
-            chat_item.wait_for(state="visible", timeout=15000)
-            chat_item.click()
-            time.sleep(2)
+            for chat_name in TARGET_CHATS:
+                print(f"\n--- Переходим к чату: '{chat_name}' ---")
+                
+                if page.url != "https://web.telegram.org/k/":
+                    page.goto("https://web.telegram.org/k/", timeout=30000)
+                    time.sleep(2)
+                    remove_onboarding_overlays(page)
 
-            print("3. Вводим новый текст через JS и отправляем...")
-            input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true']").first
-            input_box.wait_for(state="visible", timeout=25000)
+                chat_item = page.locator("#column-left").get_by_text(chat_name).first
+                chat_item.wait_for(state="visible", timeout=15000)
+                chat_item.click()
+                time.sleep(2)
+
+                print("3. Вводим текст через JS и отправляем...")
+                input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true']").first
+                input_box.wait_for(state="visible", timeout=25000)
+                
+                input_box.click()
+                time.sleep(1)
+                
+                page.evaluate(f"""(text) => {{
+                    const box = document.querySelector("div.input-message-input[contenteditable='true'], div[contenteditable='true']");
+                    if (box) {{
+                        box.focus();
+                        box.innerText = text;
+                        box.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                    }}
+                }}""", MESSAGE_TEXT)
+                
+                time.sleep(1.5)
+                page.keyboard.press("Enter")
+                print(f"✔ Сообщение успешно отправлено в чат: {chat_name}!")
+                time.sleep(2)
             
-            input_box.click()
-            time.sleep(1)
-            
-            # Внедряем текст через JS
-            page.evaluate(f"""(text) => {{
-                const box = document.querySelector("div.input-message-input[contenteditable='true'], div[contenteditable='true']");
-                if (box) {{
-                    box.focus();
-                    box.innerText = text;
-                    box.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                }}
-            }}""", MESSAGE_TEXT)
-            
-            time.sleep(1.5)
-            page.keyboard.press("Enter")
-            print("✔ Сообщение успешно отправлено!")
-            
+            print("\n✔ Все сообщения по всем чатам успешно отправлены!")
             time.sleep(3)
             
         except Exception as e:
@@ -104,4 +116,9 @@ def send_message():
             browser.close()
 
 if __name__ == "__main__":
-    send_message()
+    # Бесконечный цикл для работы 24/7 (отправка каждые 5 минут = 300 секунд)
+    while True:
+        print("\n=== Запуск цикла отправки сообщений ===")
+        send_message()
+        print("⏳ Ожидание 5 минут до следующей отправки...")
+        time.sleep(300)
