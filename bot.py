@@ -2,41 +2,29 @@ import os
 import time
 from playwright.sync_api import sync_playwright
 
-# Настройки чата и текста сообщения
+# ТВОЙ ТЕКСТ С ЖИРНЫМ ШРИФТОМ
+MESSAGE_TEXT = """**Куплю:**
+
+**Донат 1 рубль = 700к**
+**Пополнение через логин на сайте, с договором и откатом**
+
+**Донат авто - любой стоимости**
+
+**Так же беру имущество под выкуп, что бы вам отыграться, процент минимальный**"""
+
 TARGET_CHAT_NAME = "Чат игроков rahatov" 
 
-# Список строк сообщения (каждая строчка выделится жирным отдельно)
-MESSAGE_LINES = [
-    "**Куплю:**",
-    "",
-    "**Донат 1 рубль = 700к**",
-    "**Пополнение через логин на сайте, с договором и откатом**",
-    "",
-    "**Донат авто - любой стоимости**",
-    "",
-    "**Так же беру имущество под выкуп, что бы вам отыграться, процент минимальный**"
-]
-
 def remove_onboarding_overlays(page):
-    """Надежно закрывает модальные окна, темы и онбординг в Telegram Web K"""
     try:
         close_btn = page.locator("svg.icon-close, button.close-button, div.modal button, [class*='close']").last
         if close_btn.is_visible(timeout=3000):
             close_btn.click()
-            print("✔ Кликнули по крестику закрытия модалки.")
             time.sleep(1)
     except Exception:
         pass
 
     page.evaluate("""() => {
-        const unwantedSelectors = [
-            '.popup', '.modal', '.auth-modal', '.welcome', '.settings', 
-            '.tooltip', '.tip', '.popover',
-            '[class*="popup"]', '[class*="modal"]', '[class*="welcome"]',
-            '[class*="onboarding"]', '[class*="intro"]', '[class*="backdrop"]',
-            '[class*="overlay"]'
-        ];
-        
+        const unwantedSelectors = ['.popup', '.modal', '.welcome', '.settings', '.overlay'];
         unwantedSelectors.forEach(sel => {
             document.querySelectorAll(sel).forEach(el => {
                 if (el.id !== 'column-left' && el.id !== 'column-center' && el.id !== 'column-right') {
@@ -44,16 +32,6 @@ def remove_onboarding_overlays(page):
                 }
             });
         });
-
-        const allDivs = document.querySelectorAll('div');
-        allDivs.forEach(el => {
-            const text = el.innerText || '';
-            if ((text.includes('Appearance') || text.includes('Color theme') || text.includes('Next Tip')) && 
-                el.childElementCount < 15 && !el.id.includes('column')) {
-                el.remove();
-            }
-        });
-
         if (document.body) {
             document.body.style.overflow = 'auto';
             document.body.classList.remove('modal-open');
@@ -87,57 +65,41 @@ def send_message():
             page.wait_for_selector("#column-left", timeout=30000)
             time.sleep(4)
 
-            print("Закрываем всплывающие окна...")
             remove_onboarding_overlays(page)
             time.sleep(2)
 
-            print(f"2. Ищем чат '{TARGET_CHAT_NAME}' по тексту...")
+            print(f"2. Ищем чат '{TARGET_CHAT_NAME}'...")
             chat_item = page.locator("#column-left").get_by_text(TARGET_CHAT_NAME).first
             chat_item.wait_for(state="visible", timeout=15000)
             chat_item.click()
             time.sleep(2)
 
-            print("3. Ищем поле ввода сообщения...")
+            print("3. Вводим новый текст через JS и отправляем...")
             input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true']").first
             input_box.wait_for(state="visible", timeout=25000)
             
-            # Собираем весь текст с правильными переносами строк
-            full_text = "\n".join(MESSAGE_LINES)
-
-            # --- ЦИКЛ ОТПРАВКИ С ИНТЕРВАЛОМ В 1 ЧАС ---
-            iterations = 3  
+            input_box.click()
+            time.sleep(1)
             
-            for i in range(iterations):
-                input_box.click()
-                time.sleep(1)
-                
-                # Очищаем поле на всякий случай и вводим новый текст
-                input_box.fill("")
-                time.sleep(0.5)
-                
-                # Вставляем текст построчно через имитацию набора, чтобы Telegram распознал форматирование
-                for line in MESSAGE_LINES:
-                    if line:
-                        page.keyboard.type(line)
-                    # Нажимаем Shift+Enter для перевода строки внутри одного сообщения
-                    page.keyboard.press("Shift+Enter")
-                
-                time.sleep(0.5)
-                # Отправляем сообщение
-                page.keyboard.press("Enter")
-                
-                print(f"✔ Новый текст успешно отправлен! (Итерация {i+1}/{iterations})")
-                
-                if i < iterations - 1:
-                    print("Ожидание 1 час (3600 секунд) до следующей отправки...")
-                    time.sleep(3600)
+            # Внедряем текст через JS
+            page.evaluate(f"""(text) => {{
+                const box = document.querySelector("div.input-message-input[contenteditable='true'], div[contenteditable='true']");
+                if (box) {{
+                    box.focus();
+                    box.innerText = text;
+                    box.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                }}
+            }}""", MESSAGE_TEXT)
+            
+            time.sleep(1.5)
+            page.keyboard.press("Enter")
+            print("✔ Сообщение успешно отправлено!")
             
             time.sleep(3)
             
         except Exception as e:
-            print(f"✖ Ошибка при отправке: {e}")
+            print(f"✖ Ошибка: {e}")
             page.screenshot(path="error.png")
-            print("📸 Скриншот ошибки сохранен в error.png")
         finally:
             browser.close()
 
