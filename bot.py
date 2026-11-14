@@ -3,33 +3,44 @@ import time
 from playwright.sync_api import sync_playwright
 
 TARGET_CHAT_URL = "https://web.telegram.org/k/#-2455061728"
-MESSAGE_TEXT = "Привет!"
+MESSAGE_TEXT = "Привет! Сообщение отправлено с личного аккаунта."
 
-CLOSE_X = 1245
-CLOSE_Y = 35
+def close_settings_screen(page):
+    """Находит реальную кнопку закрытия/назад (не лампочку!) и закрывает экран настройки"""
+    closed = page.evaluate("""() => {
+        // Ищем все кнопки в шапке экрана (кроме лампочки lamp_filled)
+        const btns = Array.from(document.querySelectorAll('button.btn-icon'));
+        for (const btn of btns) {
+            const cls = btn.className || '';
+            const txt = btn.textContent || '';
+            // Ищем иконку крестика или стрелки назад
+            if (cls.includes('close') || cls.includes('back') || cls.includes('arrow') || txt.includes('close') || txt.includes('arrow_left')) {
+                ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(type => {
+                    btn.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+                });
+                return 'Нажата кнопка: ' + cls;
+            }
+        }
+        return 'Кнопка закрытия не найдена';
+    }""")
+    print(closed)
 
-def force_close_at_coords(page, x, y):
-    """Находит родительскую кнопку под ripple-слоем и эмулирует реальное нажатие мыши"""
-    clicked_tag = page.evaluate(f"""() => {{
-        const el = document.elementFromPoint({x}, {y});
-        if (!el) return 'none';
-        const btn = el.closest('button, .btn-icon, [role="button"]') || el;
-        ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach(type => {{
-            btn.dispatchEvent(new MouseEvent(type, {{
-                bubbles: true,
-                cancelable: true,
-                view: window,
-                clientX: {x},
-                clientY: {y}
-            }}));
-        }});
-        return btn.tagName + '.' + (btn.className || '');
-    }}""")
-    print(f"Нажата кнопка в ({x}, {y}) -> {clicked_tag}")
-    page.mouse.move(x, y)
-    page.mouse.down()
-    time.sleep(0.1)
-    page.mouse.up()
+    # Дополнительно проверяем: если правая колонка или слайдер настройки перекрывает чаты — скрываем его
+    page.evaluate("""() => {
+        // Если открыт слайдер в левой или правой колонке, возвращаем фокус на список чатов
+        const leftTabs = document.querySelector('#column-left .tabs-container');
+        if (leftTabs && leftTabs.children.length > 1) {
+            // Удаляем все дополнительные вкладки/экраны настройки поверх основного списка чатов
+            while (leftTabs.children.length > 1) {
+                leftTabs.lastElementChild.remove();
+            }
+        }
+        // Скрываем правую колонку, если в ней открыты настройки
+        const rightCol = document.querySelector('#column-right');
+        if (rightCol && rightCol.classList.contains('is-active')) {
+            rightCol.classList.remove('is-active');
+        }
+    }""")
 
 def send_message():
     auth_data = os.environ.get("TELEGRAM_AUTH_JSON")
@@ -58,14 +69,14 @@ def send_message():
             page.wait_for_selector("#column-left", timeout=30000)
             time.sleep(5)
 
-            force_close_at_coords(page, CLOSE_X, CLOSE_Y)
+            close_settings_screen(page)
             time.sleep(2)
 
             print(f"2. Переходим по прямой ссылке в чат: {TARGET_CHAT_URL}")
             page.goto(TARGET_CHAT_URL, timeout=60000)
             time.sleep(5)
 
-            force_close_at_coords(page, CLOSE_X, CLOSE_Y)
+            close_settings_screen(page)
             time.sleep(2)
 
             print("3. Ищем поле ввода сообщения...")
