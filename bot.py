@@ -21,10 +21,8 @@ MESSAGE_TEXT = """**Куплю:**
 
 **Так же беру имущество под выкуп, что бы вам отыграться, процент минимальный**"""
 
-# СПИСОК ЧАТОВ (точное название)
-TARGET_CHATS = [
-    "Чат игроков rahatov.mta",       
-]
+# ПРЯМАЯ ССЫЛКА НА ТВОЙ ЧАТ
+TARGET_LINK = "https://web.telegram.org/a/#-1002455061728" 
 
 def remove_onboarding_overlays(page):
     try:
@@ -76,57 +74,34 @@ def send_message():
         page = context.new_page()
 
         try:
-            print("1. Загружаем Telegram Web (версия A)...")
-            page.goto("https://web.telegram.org/a/", timeout=60000)
+            print("1. Открываем прямую ссылку на чат...")
+            page.goto(TARGET_LINK, timeout=60000)
             
-            print("2. Ожидаем прогрузку интерфейса...")
-            page.wait_for_selector(".Transition, #auth-pages, .row", timeout=40000)
-            time.sleep(6)
+            print("2. Ожидаем 1 минуту для полной прогрузки Telegram Web и сессии...")
+            time.sleep(60) # Ровно 1 минута на прогрузку
 
             remove_onboarding_overlays(page)
             time.sleep(2)
 
-            for chat_name in TARGET_CHATS:
-                print(f"\n--- Ищем и переходим к чату: '{chat_name}' ---")
-                
-                if "telegram.org" not in page.url:
-                    page.goto("https://web.telegram.org/a/", timeout=30000)
-                    time.sleep(3)
-
-                print("Используем строку поиска...")
-                search_input = page.locator("input.input-search__input, input[placeholder*='Search'], input[placeholder*='Поиск']").first
-                search_input.wait_for(state="visible", timeout=15000)
-                search_input.click()
-                search_input.fill(chat_name)
-                time.sleep(3)
-                
-                result_item = page.locator(".search-content .chat-item, .ListItem, .chat-list-item").first
-                result_item.wait_for(state="visible", timeout=10000)
-                result_item.click()
-                time.sleep(2)
-
-                print("3. Вводим текст через JS и отправляем...")
-                input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true']").first
-                input_box.wait_for(state="visible", timeout=25000)
-                
-                input_box.click()
-                time.sleep(1)
-                
-                page.evaluate(f"""(text) => {{
-                    const box = document.querySelector("div.input-message-input[contenteditable='true'], div[contenteditable='true']");
-                    if (box) {{
-                        box.focus();
-                        box.innerText = text;
-                        box.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    }}
-                }}""", MESSAGE_TEXT)
-                
-                time.sleep(1.5)
-                page.keyboard.press("Enter")
-                print(f"✔ Сообщение успешно отправлено в чат: {chat_name}!")
-                time.sleep(2)
+            print("3. Вводим текст через JS и отправляем...")
+            input_box = page.locator("div.input-message-input[contenteditable='true'], div[contenteditable='true']").first
+            input_box.wait_for(state="visible", timeout=25000)
             
-            print("\n✔ Все сообщения по всем чатам успешно отправлены!")
+            input_box.click()
+            time.sleep(1)
+            
+            page.evaluate(f"""(text) => {{
+                const box = document.querySelector("div.input-message-input[contenteditable='true'], div[contenteditable='true']");
+                if (box) {{
+                    box.focus();
+                    box.innerText = text;
+                    box.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                }}
+            }}""", MESSAGE_TEXT)
+            
+            time.sleep(1.5)
+            page.keyboard.press("Enter")
+            print("✔ Сообщение успешно отправлено в чат по прямой ссылке!")
             time.sleep(3)
             
         except Exception as e:
