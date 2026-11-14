@@ -3,7 +3,7 @@ import time
 from playwright.sync_api import sync_playwright
 
 TARGET_CHAT_URL = "https://web.telegram.org/k/#-2455061728"
-MESSAGE_TEXT = "Привет! Сообщение отправлено с личного аккаунта."
+MESSAGE_TEXT = "Привет!"
 
 CLOSE_X = 1245
 CLOSE_Y = 35
