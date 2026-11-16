@@ -76,6 +76,12 @@ def run_mailing_cycle():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     auth_path = os.path.join(base_dir, "auth.json")
 
+    # Если запуск идет на GitHub Actions, создаем auth.json из секретов
+    auth_env = os.environ.get("AUTH_JSON_SECRET")
+    if auth_env:
+        with open(auth_path, "w", encoding="utf-8") as f:
+            f.write(auth_env)
+
     if not os.path.exists(auth_path):
         print(f"✖ Ошибка: файл auth.json не найден по пути: {auth_path}")
         return
