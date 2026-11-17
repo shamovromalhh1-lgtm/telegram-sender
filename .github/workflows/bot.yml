@@ -2,8 +2,7 @@ name: Telegram AutoPoster
 
 on:
   schedule:
-    # Запуск каждый час (в 00 минут каждого часа)
-    - cron: '0 * * * *'
+    - cron: '0 * * * *' # Запуск каждый час в 0 минут
   workflow_dispatch: # Позволяет запускать бота вручную кнопкой с сайта GitHub
 
 jobs:
